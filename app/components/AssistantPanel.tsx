@@ -16,7 +16,13 @@ const SUGGESTIONS = [
   "What was my biggest expense?",
 ];
 
-export default function AssistantPanel({ userId }: { userId: string }) {
+export default function AssistantPanel({
+  userId,
+  enabled,
+}: {
+  userId: string;
+  enabled: boolean;
+}) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
@@ -33,7 +39,7 @@ export default function AssistantPanel({ userId }: { userId: string }) {
 
   async function send(text: string) {
     const question = text.trim();
-    if (!question || busy) return;
+    if (!question || busy || !enabled) return;
     setInput("");
     setMessages((m) => [...m, { role: "user", text: question }]);
     setBusy(true);
@@ -65,8 +71,13 @@ export default function AssistantPanel({ userId }: { userId: string }) {
   return (
     <div className="card assistant">
       <h2>Financial assistant</h2>
+      {!enabled && (
+        <div className="banner kill">
+          Assistant turned off by the <code>ai_assistant_enabled</code> flag.
+        </div>
+      )}
       <div className="messages">
-        {messages.length === 0 && (
+        {messages.length === 0 && enabled && (
           <div className="msg assistant">
             Hi! I can answer questions about your accounts and spending. Try one of the
             suggestions below.
@@ -88,7 +99,7 @@ export default function AssistantPanel({ userId }: { userId: string }) {
 
       <div className="suggestions">
         {SUGGESTIONS.map((s) => (
-          <button key={s} onClick={() => send(s)} disabled={busy}>
+          <button key={s} onClick={() => send(s)} disabled={busy || !enabled}>
             {s}
           </button>
         ))}
@@ -104,9 +115,10 @@ export default function AssistantPanel({ userId }: { userId: string }) {
         <input
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          placeholder="Ask about your finances…"
+          placeholder={enabled ? "Ask about your finances…" : "Assistant is disabled"}
+          disabled={!enabled}
         />
-        <button type="submit" disabled={busy || !input.trim()}>
+        <button type="submit" disabled={busy || !input.trim() || !enabled}>
           Send
         </button>
       </form>

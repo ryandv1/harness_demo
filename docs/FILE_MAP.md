@@ -1,10 +1,10 @@
 # File Map
 
-> **Last updated:** 2026-06-10 · maintained by Claude. **Update this whenever files are added,
+> **Last updated:** 2026-06-10 (Phase 1) · maintained by Claude. **Update this whenever files are added,
 > moved, or meaningfully change responsibility.** This is the fast-context index for future sessions.
 
-**Current state:** Phase 0 complete and verified (runs in mock mode with no keys). Phase 1 (FME
-flags) not yet started.
+**Current state:** Phase 1 complete and verified (kill switch + tier targeting, mock-first; runs in
+mock mode with no keys, goes live with `FME_SDK_KEY`). Phase 2 (experimentation) not yet started.
 
 ---
 
@@ -28,17 +28,27 @@ demo project/
 │   │   ├── AccountOverview.tsx # total balance + per-account balances (F1)
 │   │   ├── TransactionList.tsx # color-coded recent transactions (F1)
 │   │   ├── UserSwitcher.tsx    # free vs premium switch (demo targeting groundwork) — F4
-│   │   └── AssistantPanel.tsx  # AI chat UI; shows source label (Claude vs computed) — F2
+│   │   ├── AssistantPanel.tsx  # AI chat UI; `enabled` prop → kill-switch banner; source label — F2/F3
+│   │   └── DemoPanel.tsx       # mode pill + per-flag treatments, describe, eval latency (µs) — F5
 │   └── api/
 │       ├── users/route.ts          # GET list of users
 │       ├── users/[id]/route.ts     # GET one user's accounts + transactions
-│       └── assistant/route.ts      # POST { userId, message } → assistant reply — F2
+│       ├── assistant/route.ts      # POST { userId, message }; evaluates AI_ASSISTANT_ENABLED + AI_MODEL — F2/F3
+│       └── flags/
+│           ├── route.ts            # GET ?userId → { mode, evaluations[] } — F5
+│           └── override/route.ts   # POST { flag, treatment }; mock-only (409 in fme mode) — F5
 ├── lib/
 │   ├── types.ts                # shared User/Account/Transaction/UserData types
 │   ├── format.ts               # formatUSD(cents)
 │   ├── db.ts                   # better-sqlite3 singleton, schema, self-seed, queries
-│   └── ai/
-│       └── claude.ts           # Anthropic call + deterministic no-key fallback — D-007, N4
+│   ├── ai/
+│   │   └── claude.ts           # Anthropic call (model by treatment) + deterministic no-key fallback — D-007, N4
+│   └── flags/                  # mock-first flag layer — N1, D-004
+│       ├── types.ts            # FlagMode, FlagEvaluation, FlagClient (sync getTreatment)
+│       ├── flags.ts            # FLAGS, FLAG_DEFS, MODEL_BY_TREATMENT — client-safe (no server imports)
+│       ├── mockClient.ts       # MockFlagClient + override store on globalThis — N1
+│       ├── fmeClient.ts        # FmeFlagClient wrapping splitio SplitFactory (live mode)
+│       └── index.ts            # getFlagMode/getFlagClient factory + evaluateFlag (latency timing)
 └── data/
     └── demo.sqlite             # generated on first run; gitignored
 ```
@@ -46,12 +56,7 @@ demo project/
 ## Planned (later phases) — not yet created
 
 ```
-lib/flags/
-├── FlagClient.ts               # interface (bool/string/treatment variations) — D-004 (Phase 1)
-├── mockClient.ts               # mock implementation, no FME needed — N1 (Phase 1)
-└── fmeClient.ts                # real FME server-side SDK implementation (Phase 1)
 app/components/
-├── DemoPanel.tsx               # active treatments + flag-eval latency — F5 (Phase 1)
 └── ExperimentResults.tsx       # in-app results view from fixtures (audible-ready) — D-008 (Phase 2)
 app/api/feedback/route.ts       # thumbs up/down + metric capture — F6 (Phase 2)
 lib/sim/
@@ -67,4 +72,6 @@ README.md                       # quickstart: clone → install → run (write b
 - **Data/seed:** `lib/db.ts` — schema + seed (two users: `jordan` free, `riley` premium). DB
   self-seeds on first use; delete `data/demo.sqlite*` to reseed.
 - **AI behavior + fallback:** `lib/ai/claude.ts` (+ `app/api/assistant/route.ts`).
-- **Flag wiring:** `lib/flags/` — *not built yet*; arrives in Phase 1 (start here for mock-vs-live).
+- **Flag wiring:** `lib/flags/index.ts` is the entry point (factory + evaluateFlag). Start there for
+  mock-vs-live. Flag names/defs live in `lib/flags/flags.ts`; mock rules + override store in
+  `mockClient.ts`. Mock mode runs with no key; set `FME_SDK_KEY` to switch to `fmeClient.ts`.

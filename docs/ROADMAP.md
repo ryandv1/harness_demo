@@ -1,6 +1,6 @@
 # Roadmap
 
-> **Last updated:** 2026-06-09 · maintained by Claude across sessions.
+> **Last updated:** 2026-06-10 · maintained by Claude across sessions.
 
 Phased so each phase is independently demoable, builds on the last, and advances the three
 differentiation pillars (see [PROJECT.md](PROJECT.md) §3). We build and validate one phase before
@@ -23,19 +23,25 @@ Legend — Pillars: 🏛️ Architecture · 🧪 Experimentation · 🛡️ Gove
 
 ---
 
-## Phase 1 — Control: kill switch + targeting 🏛️
+## Phase 1 — Control: kill switch + targeting 🏛️ ✅ COMPLETE (2026-06-10)
 **Goal:** introduce FME with the most visceral, easy-to-grasp capability, and establish the
 mock-first integration architecture.
 
-- Integrate FME server-side SDK behind a `FlagClient` interface with a **mock implementation** (N1).
-- Flags: `ai-assistant-enabled` (kill switch, F3), `ai-model` treatment by user tier (targeting, F4).
-- **Demo panel** (F5): show active treatments and flag-eval latency.
+- Integrated FME server-side SDK (splitio) behind a `FlagClient` interface with a **mock
+  implementation** (N1); factory in `lib/flags/index.ts` picks mock vs live by `FME_SDK_KEY`.
+- Flags: `ai_assistant_enabled` (kill switch, F3), `ai_model` treatment by user tier — premium→sonnet,
+  free→haiku (targeting, F4). Model id flows into `askAssistant`.
+- **Demo panel** (F5): shows mode (mock/live FME), active treatments, and per-flag eval latency (µs).
+  In mock mode, treatment buttons flip flags live via an override store; in live mode they're
+  read-only (change in the FME UI).
 
 **Demo moment:** "Watch me turn the AI off for everyone — instantly, no deploy. Now watch premium
 users get a smarter model while free users don't. And notice the flag check added microseconds —
 that's the local-evaluation architecture."
-**Exit check (QA):** flipping a flag in FME (or the mock) changes app behavior with no restart;
-targeting differs by user; works in both mock and live modes.
+**Exit check (QA):** ✅ flipping a flag (mock override) changes app behavior with no restart —
+verified live in browser (kill switch → assistant banner + disabled input); ✅ targeting differs by
+user (riley/premium→sonnet, jordan/free→haiku); ✅ latency reported 1–14 µs; live mode wired (untested
+without a key).
 
 ---
 

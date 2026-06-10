@@ -1,7 +1,8 @@
 import type { UserData } from "@/lib/types";
 import { formatUSD } from "@/lib/format";
+import { MODEL_BY_TREATMENT } from "@/lib/flags/flags";
 
-// Phase 0: the model is a constant. Phase 1 makes this an FME-flag-driven choice.
+// Fallback model if no flag treatment is supplied (Phase 1: the ai_model flag drives this).
 const DEFAULT_MODEL = "claude-sonnet-4-6";
 
 export type AssistantSource = "claude" | "fallback";
@@ -14,11 +15,13 @@ export interface AssistantResult {
 
 export async function askAssistant(
   data: UserData,
-  question: string
+  question: string,
+  modelTreatment?: string
 ): Promise<AssistantResult> {
+  const model = MODEL_BY_TREATMENT[modelTreatment ?? ""] ?? DEFAULT_MODEL;
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
-    return { reply: localAnswer(data, question), source: "fallback" };
+    return { reply: localAnswer(data, question), source: "fallback", model };
   }
 
   try {
@@ -26,7 +29,7 @@ export async function askAssistant(
     const Anthropic = (await import("@anthropic-ai/sdk")).default;
     const client = new Anthropic({ apiKey });
     const msg = await client.messages.create({
-      model: DEFAULT_MODEL,
+      model,
       max_tokens: 600,
       system:
         "You are Northwind Bank's friendly financial assistant. Answer using ONLY the " +
@@ -45,7 +48,7 @@ export async function askAssistant(
       .map((b) => b.text)
       .join("")
       .trim();
-    return { reply: reply || "(no response)", source: "claude", model: DEFAULT_MODEL };
+    return { reply: reply || "(no response)", source: "claude", model };
   } catch (err) {
     // If the live call fails, degrade gracefully so the demo never dead-ends.
     const note =

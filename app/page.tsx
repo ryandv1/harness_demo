@@ -1,16 +1,25 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import type { User, UserData } from "@/lib/types";
+import type { FlagEvaluation, FlagMode } from "@/lib/flags/types";
+import { FLAGS } from "@/lib/flags/flags";
 import UserSwitcher from "./components/UserSwitcher";
 import AccountOverview from "./components/AccountOverview";
 import TransactionList from "./components/TransactionList";
 import AssistantPanel from "./components/AssistantPanel";
+import DemoPanel from "./components/DemoPanel";
+
+interface FlagState {
+  mode: FlagMode;
+  evaluations: FlagEvaluation[];
+}
 
 export default function Home() {
   const [users, setUsers] = useState<User[]>([]);
   const [currentId, setCurrentId] = useState<string>("");
   const [data, setData] = useState<UserData | null>(null);
+  const [flags, setFlags] = useState<FlagState | null>(null);
 
   useEffect(() => {
     fetch("/api/users")
@@ -21,13 +30,33 @@ export default function Home() {
       });
   }, []);
 
+  const refreshFlags = useCallback((userId: string) => {
+    return fetch(`/api/flags?userId=${userId}`)
+      .then((r) => r.json())
+      .then(setFlags);
+  }, []);
+
   useEffect(() => {
     if (!currentId) return;
     setData(null);
     fetch(`/api/users/${currentId}`)
       .then((r) => r.json())
       .then(setData);
-  }, [currentId]);
+    refreshFlags(currentId);
+  }, [currentId, refreshFlags]);
+
+  async function handleToggle(flag: string, treatment: string) {
+    await fetch("/api/flags/override", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ flag, treatment }),
+    });
+    await refreshFlags(currentId);
+  }
+
+  const assistantEnabled =
+    flags?.evaluations.find((e) => e.flag === FLAGS.AI_ASSISTANT_ENABLED)?.treatment !==
+    "off";
 
   return (
     <div className="app-shell">
@@ -42,8 +71,8 @@ export default function Home() {
       </div>
 
       <div className="banner">
-        Demo app for Harness FME. Switch the user (free vs premium) to preview targeting —
-        feature flags arrive in Phase 1.
+        Demo app for Harness FME. Switch the user (free vs premium) to see flag targeting,
+        and use the FME Demo Panel to flip flags live.
       </div>
 
       {data ? (
@@ -52,7 +81,16 @@ export default function Home() {
             <AccountOverview accounts={data.accounts} />
             <TransactionList transactions={data.transactions} />
           </div>
-          <AssistantPanel userId={data.user.id} />
+          <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+            {flags && (
+              <DemoPanel
+                mode={flags.mode}
+                evaluations={flags.evaluations}
+                onToggle={handleToggle}
+              />
+            )}
+            <AssistantPanel userId={data.user.id} enabled={assistantEnabled} />
+          </div>
         </div>
       ) : (
         <div className="card">Loading…</div>
