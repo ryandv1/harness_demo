@@ -7,6 +7,10 @@ interface ChatMessage {
   role: "user" | "assistant";
   text: string;
   source?: AssistantSource;
+  treatment?: string; // ai_model arm that produced this reply (for feedback)
+  latencyMs?: number;
+  costCents?: number;
+  rating?: "up" | "down"; // user's thumbs feedback, once given
 }
 
 const SUGGESTIONS = [
@@ -19,9 +23,11 @@ const SUGGESTIONS = [
 export default function AssistantPanel({
   userId,
   enabled,
+  onFeedback,
 }: {
   userId: string;
   enabled: boolean;
+  onFeedback?: () => void;
 }) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
@@ -56,6 +62,9 @@ export default function AssistantPanel({
           role: "assistant",
           text: data.reply ?? data.error ?? "Something went wrong.",
           source: data.source,
+          treatment: data.treatment,
+          latencyMs: data.latencyMs,
+          costCents: data.costCents,
         },
       ]);
     } catch {
@@ -65,6 +74,32 @@ export default function AssistantPanel({
       ]);
     } finally {
       setBusy(false);
+    }
+  }
+
+  // Record a thumbs-up/down for an assistant reply, attributed to its treatment.
+  // This is the live experiment metric (F6) that blends into the dashboard.
+  async function rate(index: number, rating: "up" | "down") {
+    const msg = messages[index];
+    if (!msg || msg.role !== "assistant" || !msg.treatment || msg.rating) return;
+    setMessages((m) =>
+      m.map((x, i) => (i === index ? { ...x, rating } : x))
+    );
+    try {
+      await fetch("/api/feedback", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userId,
+          treatment: msg.treatment,
+          rating,
+          latencyMs: msg.latencyMs,
+          costCents: msg.costCents,
+        }),
+      });
+      onFeedback?.();
+    } catch {
+      // Non-fatal: leave the optimistic rating in place.
     }
   }
 
@@ -89,7 +124,31 @@ export default function AssistantPanel({
             {m.role === "assistant" && m.source && (
               <span className="source">
                 {m.source === "claude" ? "answered by Claude" : "computed (no AI key)"}
+                {m.treatment && ` · ${m.treatment}`}
+                {typeof m.latencyMs === "number" && ` · ${m.latencyMs}ms`}
               </span>
+            )}
+            {m.role === "assistant" && m.treatment && (
+              <div className="rate">
+                <button
+                  className={`thumb ${m.rating === "up" ? "on" : ""}`}
+                  onClick={() => rate(i, "up")}
+                  disabled={!!m.rating}
+                  title="Helpful"
+                  aria-label="Thumbs up"
+                >
+                  👍
+                </button>
+                <button
+                  className={`thumb ${m.rating === "down" ? "on" : ""}`}
+                  onClick={() => rate(i, "down")}
+                  disabled={!!m.rating}
+                  title="Not helpful"
+                  aria-label="Thumbs down"
+                >
+                  👎
+                </button>
+              </div>
             )}
           </div>
         ))}

@@ -1,6 +1,6 @@
 # Decision Log
 
-> **Last updated:** 2026-06-09 · maintained by Claude. Append-only; supersede rather than delete.
+> **Last updated:** 2026-06-10 · maintained by Claude. Append-only; supersede rather than delete.
 
 Lightweight ADRs (Architecture Decision Records). Each entry: the decision, why, and alternatives.
 
@@ -83,6 +83,16 @@ or create a **new** experiment/version and re-seed.
 *Rejected:* (a) rely on live traffic simulation to produce results in the room — won't work due to
 calc cadence; (b) per-demo pre-seeding days ahead — fails the audible-ready requirement; (c) in-app
 chart only with no real-FME path — loses the credibility of showing the actual product.
+
+**Implementation note (2026-06-10, Phase 2):** Built and verified. The simulator allocates synthetic
+users 50/50 by a **stable key hash** (`lib/sim/rng.ts`) rather than calling the mock client's
+`getTreatment` — the mock `ai_model` rule targets by *tier* (Phase 1), which wouldn't produce the
+even A/B split an experiment needs. Key-hash bucketing is exactly how an FME percentage rollout
+allocates traffic, so this stays faithful to the live behavior while keeping the simulator
+self-contained. Stats are honest (`lib/experiment/stats.ts`): real Bernoulli draws, a two-proportion
+z-test, and a power-analysis sample-size target. The committed fixture (`lib/sim/fixtures.json`,
+seed 42, 6,000 users) yields Sonnet +10pt / p<0.001; live 👍/👎 feedback blends on top via
+`app/api/experiment`.
 
 ### D-009 — Source control: local-first, private→public later, secrets-safe from commit #1
 **Decided:** 2026-06-09 · **Status:** Accepted

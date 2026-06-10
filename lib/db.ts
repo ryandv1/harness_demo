@@ -2,6 +2,7 @@ import path from "node:path";
 import fs from "node:fs";
 import Database from "better-sqlite3";
 import type { Account, Transaction, User, UserData } from "./types";
+import type { TreatmentResult } from "./experiment/types";
 
 // --- Connection (singleton, cached across dev hot-reloads) ---
 
@@ -51,6 +52,17 @@ function migrate(db: Database.Database) {
       category     TEXT NOT NULL,
       amount_cents INTEGER NOT NULL
     );
+    -- Live experiment metric capture (F6): one row per assistant reply rated by a
+    -- real user. The experiment dashboard blends these with the simulated fixtures.
+    CREATE TABLE IF NOT EXISTS feedback (
+      id         INTEGER PRIMARY KEY AUTOINCREMENT,
+      created_at TEXT NOT NULL,
+      user_id    TEXT NOT NULL,
+      treatment  TEXT NOT NULL,
+      rating     TEXT NOT NULL,   -- 'up' | 'down'
+      latency_ms INTEGER,
+      cost_cents REAL
+    );
   `);
 }
 
@@ -81,6 +93,60 @@ export function getUserData(userId: string): UserData | null {
     .all(userId) as Transaction[];
 
   return { user, accounts, transactions };
+}
+
+// --- Experiment feedback (live metric capture, F6) ---
+
+export interface FeedbackInput {
+  userId: string;
+  treatment: string;
+  rating: "up" | "down";
+  latencyMs?: number;
+  costCents?: number;
+}
+
+export function recordFeedback(input: FeedbackInput): void {
+  db.prepare(
+    `INSERT INTO feedback (created_at, user_id, treatment, rating, latency_ms, cost_cents)
+     VALUES (?, ?, ?, ?, ?, ?)`
+  ).run(
+    new Date().toISOString(),
+    input.userId,
+    input.treatment,
+    input.rating,
+    input.latencyMs ?? null,
+    input.costCents ?? null
+  );
+}
+
+/** Aggregate live feedback into per-treatment rows the dashboard can blend in. */
+export function getFeedbackResults(): TreatmentResult[] {
+  const rows = db
+    .prepare(
+      `SELECT treatment,
+              COUNT(*)                                  AS exposures,
+              SUM(CASE WHEN rating = 'up' THEN 1 ELSE 0 END) AS conversions,
+              AVG(latency_ms)                           AS avgLatencyMs,
+              AVG(cost_cents)                           AS avgCostCents
+       FROM feedback
+       GROUP BY treatment`
+    )
+    .all() as Array<{
+    treatment: string;
+    exposures: number;
+    conversions: number;
+    avgLatencyMs: number | null;
+    avgCostCents: number | null;
+  }>;
+
+  return rows.map((r) => ({
+    treatment: r.treatment,
+    exposures: r.exposures,
+    conversions: r.conversions,
+    conversionRate: r.exposures ? r.conversions / r.exposures : 0,
+    avgLatencyMs: Math.round(r.avgLatencyMs ?? 0),
+    avgCostCents: Number((r.avgCostCents ?? 0).toFixed(4)),
+  }));
 }
 
 // --- Seed ---

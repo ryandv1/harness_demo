@@ -9,6 +9,7 @@ import AccountOverview from "./components/AccountOverview";
 import TransactionList from "./components/TransactionList";
 import AssistantPanel from "./components/AssistantPanel";
 import DemoPanel from "./components/DemoPanel";
+import ExperimentResults from "./components/ExperimentResults";
 
 interface FlagState {
   mode: FlagMode;
@@ -20,6 +21,8 @@ export default function Home() {
   const [currentId, setCurrentId] = useState<string>("");
   const [data, setData] = useState<UserData | null>(null);
   const [flags, setFlags] = useState<FlagState | null>(null);
+  // Bumped whenever the user rates a reply, to refresh the experiment dashboard.
+  const [experimentKey, setExperimentKey] = useState(0);
 
   useEffect(() => {
     fetch("/api/users")
@@ -89,7 +92,12 @@ export default function Home() {
                 onToggle={handleToggle}
               />
             )}
-            <AssistantPanel userId={data.user.id} enabled={assistantEnabled} />
+            <AssistantPanel
+              userId={data.user.id}
+              enabled={assistantEnabled}
+              onFeedback={() => setExperimentKey((k) => k + 1)}
+            />
+            <ExperimentResults refreshKey={experimentKey} />
           </div>
         </div>
       ) : (
