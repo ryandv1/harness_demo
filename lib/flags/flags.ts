@@ -4,9 +4,14 @@
 //
 // Safe to import from client components: this file has no server-only imports.
 
+// Flag keys follow the project naming convention: <prefix>_<area>_<descriptor>_<platform>
+// where prefix encodes the FME category (rel_ / exp_ / ops_). See docs/DEMO_GOVERNANCE.md.
+// In the FME console each flag also carries a `category-*` and `squad-*` tag.
 export const FLAGS = {
-  AI_ASSISTANT_ENABLED: "ai_assistant_enabled",
-  AI_MODEL: "ai_model",
+  // Operational kill switch (default ON). Tag: category-operational, squad-ai.
+  AI_ASSISTANT_ENABLED: "ops_assistant_killSwitch_web",
+  // Experimental model choice — Haiku vs Sonnet A/B. Tag: category-experimental, squad-ai.
+  AI_MODEL: "exp_assistant_modelChoice_web",
 } as const;
 
 // FME returns this control treatment when a flag is unknown or the SDK isn't ready.
@@ -41,7 +46,7 @@ export const FLAG_DEFS: FlagDef[] = [
   },
 ];
 
-// Maps the ai_model treatment to a concrete Anthropic model id.
+// Maps the exp_assistant_modelChoice_web treatment to a concrete Anthropic model id.
 export const MODEL_BY_TREATMENT: Record<string, string> = {
   haiku: "claude-haiku-4-5-20251001",
   sonnet: "claude-sonnet-4-6",

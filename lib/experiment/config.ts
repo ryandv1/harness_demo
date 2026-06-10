@@ -1,5 +1,5 @@
 // The standing experiment: does the smarter (pricier) model actually earn more
-// thumbs-up? Runs on the `ai_model` flag — the same flag Phase 1 targets by tier,
+// thumbs-up? Runs on the `exp_assistant_modelChoice_web` flag — the same flag Phase 1 targets by tier,
 // now A/B-allocated 50/50 for measurement.
 //
 // The `models` block is the simulator's ground truth (real Bernoulli draws, not

@@ -7,7 +7,7 @@ interface ChatMessage {
   role: "user" | "assistant";
   text: string;
   source?: AssistantSource;
-  treatment?: string; // ai_model arm that produced this reply (for feedback)
+  treatment?: string; // exp_assistant_modelChoice_web arm that produced this reply (for feedback)
   latencyMs?: number;
   costCents?: number;
   rating?: "up" | "down"; // user's thumbs feedback, once given
@@ -108,7 +108,7 @@ export default function AssistantPanel({
       <h2>Financial assistant</h2>
       {!enabled && (
         <div className="banner kill">
-          Assistant turned off by the <code>ai_assistant_enabled</code> flag.
+          Assistant turned off by the <code>ops_assistant_killSwitch_web</code> flag.
         </div>
       )}
       <div className="messages">

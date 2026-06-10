@@ -86,7 +86,7 @@ chart only with no real-FME path — loses the credibility of showing the actual
 
 **Implementation note (2026-06-10, Phase 2):** Built and verified. The simulator allocates synthetic
 users 50/50 by a **stable key hash** (`lib/sim/rng.ts`) rather than calling the mock client's
-`getTreatment` — the mock `ai_model` rule targets by *tier* (Phase 1), which wouldn't produce the
+`getTreatment` — the mock `exp_assistant_modelChoice_web` rule targets by *tier* (Phase 1), which wouldn't produce the
 even A/B split an experiment needs. Key-hash bucketing is exactly how an FME percentage rollout
 allocates traffic, so this stays faithful to the live behavior while keeping the simulator
 self-contained. Stats are honest (`lib/experiment/stats.ts`): real Bernoulli draws, a two-proportion
@@ -107,3 +107,30 @@ commit** — git *history* exposes anything ever committed. No secrets ever ente
 in git-ignored `.env.local`; we ship a blanks-only `.env.example`. `.gitignore` enforces this
 (`.env*`, `*.key`, `*.pem`, `node_modules/`, `.next/`, `data/*.sqlite`). Mock-first architecture
 (D-004, D-007) means the app runs with zero secrets, so a public clone is safe by construction.
+
+### D-010 — Phase 3 governance: lives in the FME console; app is runtime payoff + read-only mirror
+**Decided:** 2026-06-10 · **Status:** Accepted
+The governance story (policy-as-code/OPA, approvals, audit, pipelines) is demonstrated in the **real
+Harness/FME console**, not simulated in the app. Rationale: OPA policies fire at flag
+**create/update** time (console, Admin API, pipeline) — the runtime SDK never touches them — and Ryan
+(Harness employee) has full platform access incl. OPA, so a faithful demo uses the real product.
+Unlike Phases 1–2, this means **governance does not degrade to mock**: a credential-less cloner sees
+the runtime payoff but not the policy enforcement. Accepted as a conscious departure from mock-first
+for this phase. The Northwind app's role: (a) **runtime payoff** — flag changes visibly change the
+product; (b) a **read-only governance mirror** panel that pulls each flag's category/owner/tags/
+compliance from the FME Admin API. Full demo narrative in [DEMO_GOVERNANCE.md](DEMO_GOVERNANCE.md).
+*Alternatives:* an in-app OPA simulator (rejected — can't honestly call a fake "real FME"); skip
+governance in-app entirely (rejected — the mirror reinforces the console story for the audience).
+
+### D-011 — Flag naming convention: category prefix + required tags
+**Decided:** 2026-06-10 · **Status:** Accepted
+Flag keys follow `<prefix>_<area>_<descriptor>_<platform>` where the prefix encodes FME category
+(`rel_`/`exp_`/`ops_`), e.g. `ops_assistant_killSwitch_web`. Every flag also carries exactly one
+`category-*` tag and a `squad-*` tag in the console. **Belt-and-suspenders** (prefix *and* tag) is
+deliberate: it lets the governance demo show both the naming-convention policy and the category-tag
+policy, and the demo's own flags must be exemplars since the demo shows OPA rejecting non-compliant
+flags. Adopted from the client governance doc's secondary naming option (its primary was tags-only).
+The two Phase 1/2 flags were renamed accordingly (`ai_assistant_enabled` → `ops_assistant_killSwitch_web`,
+`ai_model` → `exp_assistant_modelChoice_web`) before any FME splits exist, so the cost was a code +
+docs sync with no FME recreate. *Trade-off:* longer flag names; the client doc notes tags-only avoids
+this, but for a *demo* the visible prefix is worth the length.

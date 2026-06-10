@@ -28,7 +28,7 @@ export interface Comparison {
 
 /** A full experiment readout, whether from fixtures or live feedback. */
 export interface ExperimentResult {
-  key: string; // the flag the experiment runs on, e.g. "ai_model"
+  key: string; // the flag the experiment runs on, e.g. "exp_assistant_modelChoice_web"
   name: string; // human label
   metric: string; // primary metric label, e.g. "thumbs-up rate"
   generatedAt: string; // ISO timestamp

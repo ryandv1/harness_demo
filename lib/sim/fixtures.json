@@ -1,8 +1,8 @@
 {
-  "key": "ai_model",
+  "key": "exp_assistant_modelChoice_web",
   "name": "AI Model — Haiku vs Sonnet",
   "metric": "thumbs-up rate",
-  "generatedAt": "2026-06-10T18:21:55.775Z",
+  "generatedAt": "2026-06-10T20:28:43.891Z",
   "source": "fixtures",
   "totalExposures": 6000,
   "requiredSamplePerArm": 991,

@@ -1,6 +1,6 @@
 # Roadmap
 
-> **Last updated:** 2026-06-10 (Phase 2) · maintained by Claude across sessions.
+> **Last updated:** 2026-06-10 (Phase 3 prep — flag rename) · maintained by Claude across sessions.
 
 Phased so each phase is independently demoable, builds on the last, and advances the three
 differentiation pillars (see [PROJECT.md](PROJECT.md) §3). We build and validate one phase before
@@ -29,8 +29,9 @@ mock-first integration architecture.
 
 - Integrated FME server-side SDK (splitio) behind a `FlagClient` interface with a **mock
   implementation** (N1); factory in `lib/flags/index.ts` picks mock vs live by `FME_SDK_KEY`.
-- Flags: `ai_assistant_enabled` (kill switch, F3), `ai_model` treatment by user tier — premium→sonnet,
-  free→haiku (targeting, F4). Model id flows into `askAssistant`.
+- Flags: `ops_assistant_killSwitch_web` (kill switch, F3), `exp_assistant_modelChoice_web` treatment by user tier — premium→sonnet,
+  free→haiku (targeting, F4). Model id flows into `askAssistant`. (Flags renamed to the project naming
+  convention in Phase 3 prep — see [DECISIONS.md](DECISIONS.md) D-010.)
 - **Demo panel** (F5): shows mode (mock/live FME), active treatments, and per-flag eval latency (µs).
   In mock mode, treatment buttons flip flags live via an override store; in live mode they're
   read-only (change in the FME UI).
@@ -49,7 +50,7 @@ without a key).
 **Goal:** the headline differentiator — prove impact, not just toggle features. Must be
 **audible-ready** (demoable on zero notice). See [DECISIONS.md](DECISIONS.md) D-008.
 
-- A/B test on the `ai_model` flag: **Haiku (baseline) vs Sonnet (variant)**.
+- A/B test on the `exp_assistant_modelChoice_web` flag: **Haiku (baseline) vs Sonnet (variant)**.
 - Metric capture (F6): 👍/👎 on each assistant reply → `/api/feedback` → SQLite, attributed to the
   treatment that produced the answer; latency + estimated token cost recorded too.
 - **Traffic simulator** (`lib/sim/`): synthetic users allocated 50/50 by stable key hash (mirrors an

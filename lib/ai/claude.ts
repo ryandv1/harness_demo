@@ -2,7 +2,7 @@ import type { UserData } from "@/lib/types";
 import { formatUSD } from "@/lib/format";
 import { MODEL_BY_TREATMENT } from "@/lib/flags/flags";
 
-// Fallback model if no flag treatment is supplied (Phase 1: the ai_model flag drives this).
+// Fallback model if no flag treatment is supplied (Phase 1: the exp_assistant_modelChoice_web flag drives this).
 const DEFAULT_MODEL = "claude-sonnet-4-6";
 
 export type AssistantSource = "claude" | "fallback";
