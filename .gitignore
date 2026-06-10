@@ -1,0 +1,25 @@
+# Secrets — NEVER commit. Repo may go public; history is forever.
+.env
+.env.local
+.env.*.local
+*.key
+*.pem
+
+# Dependencies
+node_modules/
+
+# Next.js build output + generated types
+.next/
+out/
+build/
+next-env.d.ts
+*.tsbuildinfo
+
+# Generated demo database (incl. WAL sidecar files: -wal, -shm, -journal)
+data/*.sqlite*
+
+# Logs / OS / editor cruft
+*.log
+.DS_Store
+.vscode/*
+!.vscode/settings.json
