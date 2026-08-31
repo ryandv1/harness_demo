@@ -1,0 +1,14 @@
+inputSet:
+  name: Build_ryandv1_harness_demo_1788204703587-push-trigger-input-set
+  identifier: Build_ryandv1_harness_demo_1788204703587pushtriggerinputset
+  orgIdentifier: default
+  projectIdentifier: default_project
+  pipeline:
+    identifier: Build_ryandv1_harness_demo_1788204703587
+    properties:
+      ci:
+        codebase:
+          build:
+            type: branch
+            spec:
+              branch: <+trigger.branch>
