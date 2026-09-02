@@ -1,0 +1,39 @@
+{
+  "key": "exp_assistant_modelChoice_web",
+  "name": "AI Model — Haiku vs Sonnet",
+  "metric": "thumbs-up rate",
+  "generatedAt": "2026-06-10T20:28:43.891Z",
+  "source": "fixtures",
+  "totalExposures": 6000,
+  "requiredSamplePerArm": 991,
+  "treatments": [
+    {
+      "treatment": "haiku",
+      "exposures": 3016,
+      "conversions": 1893,
+      "conversionRate": 0.6276525198938993,
+      "avgLatencyMs": 851,
+      "avgCostCents": 0.04
+    },
+    {
+      "treatment": "sonnet",
+      "exposures": 2984,
+      "conversions": 2170,
+      "conversionRate": 0.7272117962466488,
+      "avgLatencyMs": 2100,
+      "avgCostCents": 0.13
+    }
+  ],
+  "comparison": {
+    "baseline": "haiku",
+    "variant": "sonnet",
+    "absoluteLift": 0.09955927635274953,
+    "relativeLift": 0.158621646846219,
+    "zScore": 8.246776276929234,
+    "pValue": 0,
+    "significant": true,
+    "alpha": 0.05,
+    "ciLow": 0.0760423357741366,
+    "ciHigh": 0.12307621693136245
+  }
+}
