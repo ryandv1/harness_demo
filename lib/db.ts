@@ -1,7 +1,15 @@
 import path from "node:path";
 import fs from "node:fs";
 import Database from "better-sqlite3";
-import type { Account, Transaction, User, UserData } from "./types";
+import type {
+  Account,
+  Mortgage,
+  MortgageApplication,
+  MortgageApplicationInput,
+  Transaction,
+  User,
+  UserData,
+} from "./types";
 import type { TreatmentResult } from "./experiment/types";
 
 // --- Connection (singleton, cached across dev hot-reloads) ---
@@ -63,6 +71,30 @@ function migrate(db: Database.Database) {
       latency_ms INTEGER,
       cost_cents REAL
     );
+    -- Mortgage refinance servicing: the pre-existing mortgage each user can
+    -- refinance (F-mortgage). One row per user in demo scope.
+    CREATE TABLE IF NOT EXISTS mortgages (
+      id                        TEXT PRIMARY KEY,
+      user_id                   TEXT NOT NULL REFERENCES users(id),
+      lender                    TEXT NOT NULL,
+      original_principal_cents  INTEGER NOT NULL,
+      current_balance_cents     INTEGER NOT NULL,
+      interest_rate_bps         INTEGER NOT NULL, -- basis points, e.g. 675 = 6.75%
+      term_months               INTEGER NOT NULL,
+      origination_date          TEXT NOT NULL
+    );
+    -- Submitted refinance applications. exp_mortgage_applicationFlow_web's
+    -- treatment is captured per-row so the FME experiment can be attributed
+    -- even though this demo doesn't render results in-app (console-only, D-016).
+    CREATE TABLE IF NOT EXISTS mortgage_applications (
+      id                     INTEGER PRIMARY KEY AUTOINCREMENT,
+      created_at             TEXT NOT NULL,
+      user_id                TEXT NOT NULL REFERENCES users(id),
+      treatment              TEXT NOT NULL,
+      pricing_option         TEXT NOT NULL, -- 'lowRatePointsUpfront' | 'zeroUpfrontHigherRate'
+      refinance_amount_cents INTEGER NOT NULL,
+      estimated_fee_cents    INTEGER NOT NULL
+    );
   `);
 }
 
@@ -92,7 +124,7 @@ export function getUserData(userId: string): UserData | null {
     )
     .all(userId) as Transaction[];
 
-  return { user, accounts, transactions };
+  return { user, accounts, transactions, mortgage: getMortgage(userId) };
 }
 
 // --- Experiment feedback (live metric capture, F6) ---
@@ -149,6 +181,65 @@ export function getFeedbackResults(): TreatmentResult[] {
   }));
 }
 
+// --- Mortgage refinance servicing ---
+
+export function getMortgage(userId: string): Mortgage | null {
+  const row = db
+    .prepare(
+      `SELECT id, lender,
+              original_principal_cents AS originalPrincipalCents,
+              current_balance_cents    AS currentBalanceCents,
+              interest_rate_bps        AS interestRateBps,
+              term_months              AS termMonths,
+              origination_date         AS originationDate
+       FROM mortgages WHERE user_id = ?`
+    )
+    .get(userId) as Mortgage | undefined;
+  return row ?? null;
+}
+
+export function recordMortgageApplication(
+  input: MortgageApplicationInput,
+  estimatedFeeCents: number
+): MortgageApplication {
+  const createdAt = new Date().toISOString();
+  const result = db
+    .prepare(
+      `INSERT INTO mortgage_applications
+         (created_at, user_id, treatment, pricing_option, refinance_amount_cents, estimated_fee_cents)
+       VALUES (?, ?, ?, ?, ?, ?)`
+    )
+    .run(
+      createdAt,
+      input.userId,
+      input.treatment,
+      input.pricingOption,
+      input.refinanceAmountCents,
+      estimatedFeeCents
+    );
+  return {
+    id: Number(result.lastInsertRowid),
+    createdAt,
+    userId: input.userId,
+    treatment: input.treatment,
+    pricingOption: input.pricingOption,
+    refinanceAmountCents: input.refinanceAmountCents,
+    estimatedFeeCents,
+  };
+}
+
+export function getMortgageApplications(userId: string): MortgageApplication[] {
+  return db
+    .prepare(
+      `SELECT id, created_at AS createdAt, user_id AS userId, treatment,
+              pricing_option AS pricingOption,
+              refinance_amount_cents AS refinanceAmountCents,
+              estimated_fee_cents AS estimatedFeeCents
+       FROM mortgage_applications WHERE user_id = ? ORDER BY id DESC`
+    )
+    .all(userId) as MortgageApplication[];
+}
+
 // --- Seed ---
 
 function seedIfEmpty(db: Database.Database) {
@@ -162,6 +253,12 @@ function seedIfEmpty(db: Database.Database) {
   const insertTxn = db.prepare(
     `INSERT INTO transactions (id, user_id, account_id, date, merchant, category, amount_cents)
      VALUES (?, ?, ?, ?, ?, ?, ?)`
+  );
+  const insertMortgage = db.prepare(
+    `INSERT INTO mortgages
+       (id, user_id, lender, original_principal_cents, current_balance_cents,
+        interest_rate_bps, term_months, origination_date)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
   );
 
   const seed = db.transaction(() => {
@@ -183,6 +280,18 @@ function seedIfEmpty(db: Database.Database) {
           t.amountCents
         );
       }
+      if (u.mortgage) {
+        insertMortgage.run(
+          u.mortgage.id,
+          u.user.id,
+          u.mortgage.lender,
+          u.mortgage.originalPrincipalCents,
+          u.mortgage.currentBalanceCents,
+          u.mortgage.interestRateBps,
+          u.mortgage.termMonths,
+          u.mortgage.originationDate
+        );
+      }
     }
   });
   seed();
@@ -193,6 +302,7 @@ interface SeedUser {
   user: User;
   accounts: Account[];
   transactions: SeedTxn[];
+  mortgage?: Mortgage;
 }
 
 const SEED: SeedUser[] = [
@@ -220,6 +330,15 @@ const SEED: SeedUser[] = [
       { date: "2026-05-04", merchant: "Delta Air Lines", category: "Travel", amountCents: -28400 },
       { date: "2026-05-01", merchant: "Acme Payroll", category: "Income", amountCents: 320000 },
     ],
+    mortgage: {
+      id: "jordan-mtg",
+      lender: "Northwind Home Loans",
+      originalPrincipalCents: 31000000,
+      currentBalanceCents: 28453000,
+      interestRateBps: 675, // 6.75%
+      termMonths: 360,
+      originationDate: "2021-08-01",
+    },
   },
   {
     user: { id: "riley", name: "Riley Chen", tier: "premium", email: "riley@example.com" },
@@ -245,6 +364,15 @@ const SEED: SeedUser[] = [
       { date: "2026-05-06", merchant: "Whole Foods Market", category: "Groceries", amountCents: -16890 },
       { date: "2026-05-01", merchant: "Globex Capital", category: "Income", amountCents: 980000 },
     ],
+    mortgage: {
+      id: "riley-mtg",
+      lender: "Northwind Private Client Lending",
+      originalPrincipalCents: 125000000,
+      currentBalanceCents: 118250000,
+      interestRateBps: 712, // 7.125%
+      termMonths: 360,
+      originationDate: "2022-03-01",
+    },
   },
 ];
 

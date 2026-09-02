@@ -358,6 +358,131 @@ a {
   color: var(--muted);
 }
 
+/* Tooltip (InfoTip) — CSS-only, revealed on hover/focus */
+.infotip {
+  position: relative;
+  cursor: help;
+  outline: none;
+}
+
+.infotip-bubble {
+  position: absolute;
+  top: calc(100% + 6px);
+  width: max-content;
+  max-width: 260px;
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 1.45;
+  text-transform: none;
+  letter-spacing: normal;
+  text-align: left;
+  white-space: normal;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(-4px);
+  transition: opacity 0.12s ease, transform 0.12s ease;
+  z-index: 30;
+  pointer-events: none;
+}
+
+.infotip--left .infotip-bubble {
+  left: 0;
+}
+
+.infotip--right .infotip-bubble {
+  right: 0;
+}
+
+.infotip:hover .infotip-bubble,
+.infotip:focus .infotip-bubble,
+.infotip:focus-within .infotip-bubble {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+}
+
+.infotip-mark {
+  display: inline-block;
+  margin-left: 4px;
+  width: 13px;
+  height: 13px;
+  line-height: 12px;
+  text-align: center;
+  font-size: 9px;
+  font-weight: 700;
+  font-style: italic;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  text-transform: none;
+  letter-spacing: normal;
+  vertical-align: middle;
+}
+
+.infotip:hover .infotip-mark,
+.infotip:focus .infotip-mark {
+  color: var(--blue);
+  border-color: var(--blue);
+}
+
+/* Dynamic Configuration (FME treatment config payload) */
+.dynamic-config {
+  margin-top: 10px;
+  padding: 8px 10px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--blue);
+  border-radius: 8px;
+}
+
+.dynamic-config-label {
+  display: block;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--blue);
+  margin-bottom: 6px;
+}
+
+.dynamic-config-grid {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 2px 12px;
+  margin: 0;
+}
+
+.dynamic-config-item {
+  display: contents;
+}
+
+.dynamic-config-item dt {
+  font-size: 12px;
+  color: var(--muted);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.dynamic-config-item dd {
+  margin: 0;
+  font-size: 12px;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.dynamic-config-raw {
+  margin: 0;
+  font-size: 12px;
+  color: var(--text);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
 /* Assistant feedback (thumbs) */
 .rate {
   display: flex;
@@ -510,4 +635,374 @@ a {
   border: 1px dashed var(--blue);
   background: var(--blue-soft);
   font-size: 13px;
+}
+
+/* Discreet flags-in-use footer */
+.flag-footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  margin-top: 28px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.flag-footer-label {
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-size: 11px;
+  opacity: 0.8;
+}
+
+.flag-footer-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.flag-footer-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 8px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--bg-elevated);
+}
+
+.flag-footer-chip code {
+  font-size: 11px;
+  color: var(--text);
+}
+
+.flag-footer-treatment {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--blue);
+  border-left: 1px solid var(--border);
+  padding-left: 6px;
+}
+
+.flag-footer-env {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  font-weight: 600;
+  letter-spacing: 0.03em;
+}
+
+.flag-footer-env-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+/* Environment-specific accents */
+.flag-footer-env.env-production {
+  color: var(--red);
+  border-color: var(--red);
+}
+
+.flag-footer-env.env-staging {
+  color: var(--green);
+  border-color: var(--green);
+}
+
+.flag-footer-env.env-mock,
+.flag-footer-env.env-other {
+  color: var(--muted);
+}
+
+/* Mortgage refinance banner (rel_mortgage_refinanceBanner_web) */
+.mortgage-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 20px;
+  padding: 16px 20px;
+  border-radius: var(--radius);
+  background: linear-gradient(135deg, var(--blue-soft), rgba(77, 171, 247, 0.08));
+  border: 1px solid var(--blue);
+  text-decoration: none;
+  color: var(--text);
+  transition: transform 0.12s ease;
+}
+
+.mortgage-banner:hover {
+  transform: translateY(-1px);
+}
+
+.mortgage-banner-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.mortgage-banner-rate {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  color: var(--blue);
+  text-transform: uppercase;
+}
+
+.mortgage-banner-headline {
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.mortgage-banner-blurb {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.mortgage-banner-cta {
+  flex-shrink: 0;
+  background: var(--blue);
+  color: white;
+  border-radius: 8px;
+  padding: 10px 16px;
+  font-size: 14px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* Mortgage application page */
+.mortgage-shell {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 24px;
+}
+
+.mortgage-back-link {
+  display: inline-block;
+  margin-bottom: 16px;
+  font-size: 13px;
+  color: var(--muted);
+  text-decoration: none;
+}
+
+.mortgage-back-link:hover {
+  color: var(--blue);
+}
+
+.mortgage-apply h1 {
+  margin: 0 0 4px;
+  font-size: 22px;
+}
+
+.mortgage-step {
+  font-size: 12px;
+  color: var(--blue);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+
+.mortgage-sub {
+  color: var(--muted);
+  font-size: 14px;
+  margin-bottom: 20px;
+}
+
+.mortgage-current {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 14px 16px;
+  margin-bottom: 20px;
+}
+
+.mortgage-current-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+  margin-bottom: 8px;
+}
+
+.mortgage-current-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px 16px;
+  font-size: 13px;
+}
+
+.mortgage-current-grid dt {
+  color: var(--muted);
+}
+
+.mortgage-current-grid dd {
+  margin: 2px 0 0;
+  font-weight: 600;
+}
+
+.mortgage-section-label {
+  font-size: 13px;
+  font-weight: 600;
+  margin: 20px 0 10px;
+}
+
+.pricing-options {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+@media (max-width: 560px) {
+  .pricing-options {
+    grid-template-columns: 1fr;
+  }
+}
+
+.pricing-option {
+  text-align: left;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 14px;
+  cursor: pointer;
+  color: var(--text);
+}
+
+.pricing-option.active {
+  border-color: var(--blue);
+  background: var(--blue-soft);
+}
+
+.pricing-option-title {
+  font-weight: 700;
+  font-size: 14px;
+  margin-bottom: 4px;
+}
+
+.pricing-option-detail {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.mortgage-field {
+  margin-top: 16px;
+}
+
+.mortgage-field label {
+  display: block;
+  font-size: 13px;
+  color: var(--muted);
+  margin-bottom: 6px;
+}
+
+.mortgage-field input {
+  width: 100%;
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 15px;
+}
+
+.fee-preview {
+  margin-top: 16px;
+  padding: 14px 16px;
+  border-radius: 10px;
+  border: 1px dashed var(--blue);
+  background: var(--blue-soft);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.fee-preview-label {
+  font-size: 12px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.fee-preview-value {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--blue);
+}
+
+.mortgage-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.mortgage-actions button {
+  border-radius: 8px;
+  padding: 10px 16px;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.mortgage-actions .primary {
+  background: var(--blue);
+  color: white;
+  border: none;
+  flex: 1;
+}
+
+.mortgage-actions .primary:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.mortgage-actions .secondary {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--muted);
+}
+
+.mortgage-error {
+  margin-top: 12px;
+  color: var(--red);
+  font-size: 13px;
+}
+
+.mortgage-confirm h2 {
+  color: var(--green);
+  text-transform: none;
+  font-size: 20px;
+  letter-spacing: normal;
+}
+
+.mortgage-summary {
+  margin: 16px 0;
+  display: grid;
+  gap: 10px;
+}
+
+.mortgage-summary > div {
+  display: flex;
+  justify-content: space-between;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 14px;
+}
+
+.mortgage-summary dt {
+  color: var(--muted);
+}
+
+.mortgage-summary dd {
+  margin: 0;
+  font-weight: 600;
 }

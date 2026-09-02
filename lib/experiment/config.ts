@@ -32,12 +32,14 @@ export const AI_MODEL_EXPERIMENT: ExperimentConfig = {
       trueConversionRate: 0.62,
       latencyMs: { mean: 850, jitter: 250 },
       costCents: 0.04,
+      costJitterCents: 0.015, // per-response spread (token count varies); mean stays 0.04
     },
     {
       treatment: "sonnet",
       trueConversionRate: 0.72,
       latencyMs: { mean: 2100, jitter: 500 },
       costCents: 0.13,
+      costJitterCents: 0.04, // per-response spread (token count varies); mean stays 0.13
     },
   ],
 };

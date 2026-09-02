@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { getUserData } from "@/lib/db";
-import { getFlagClient, getFlagMode, evaluateFlag } from "@/lib/flags";
-import { FLAG_DEFS } from "@/lib/flags/flags";
+import { evaluateAllFlags, getFlagMode, getFlagEnvironment } from "@/lib/flags";
 
 export const dynamic = "force-dynamic";
 
@@ -15,11 +14,11 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: "User not found" }, { status: 404 });
   }
 
-  const client = await getFlagClient();
-  const attributes = { tier: data.user.tier };
-  const evaluations = FLAG_DEFS.map((def) =>
-    evaluateFlag(client, userId, def.key, attributes)
-  );
+  const evaluations = await evaluateAllFlags(userId, { tier: data.user.tier });
 
-  return NextResponse.json({ mode: getFlagMode(), evaluations });
+  return NextResponse.json({
+    mode: getFlagMode(),
+    environment: getFlagEnvironment(),
+    evaluations,
+  });
 }

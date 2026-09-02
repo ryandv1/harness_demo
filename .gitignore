@@ -4,6 +4,10 @@
 .env.*.local
 *.key
 *.pem
+# Local key/credential notes kept at repo root (never commit)
+ryanv_demo_keys.rtf
+*_keys.rtf
+*secret*
 
 # Dependencies
 node_modules/

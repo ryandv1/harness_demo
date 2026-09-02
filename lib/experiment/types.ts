@@ -44,7 +44,12 @@ export interface TreatmentModel {
   treatment: string;
   trueConversionRate: number; // P(thumbs-up)
   latencyMs: { mean: number; jitter: number }; // uniform ± jitter
-  costCents: number; // per-response estimated token cost
+  costCents: number; // per-response estimated token cost (the MEAN)
+  // Per-response cost varies with token count, so the live experiment needs
+  // within-arm spread (a significance test on a zero-variance metric is
+  // undefined). Uniform ± this many cents around `costCents`; mean unchanged.
+  // Optional: the in-app simulator/app just use the mean (`costCents`).
+  costJitterCents?: number;
 }
 
 /** Everything needed to size and run the experiment honestly. */

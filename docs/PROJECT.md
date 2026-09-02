@@ -1,6 +1,7 @@
 # Northwind Bank — FME AI Demo
 
-> **Status:** Requirements / pre-build · **Last updated:** 2026-06-09
+> **Status:** Two features live (AI assistant + mortgage refinance servicing), governance in
+> progress · **Last updated:** 2026-09-01
 > **Working name:** `fme-ai-bank-demo` (fictional brand: "Northwind Bank" — rename freely)
 
 This is the single source of truth for *what we're building and why*. Claude maintains this file
@@ -44,17 +45,49 @@ least one of them.
    guardrails, progressive delivery). *Demo angle: govern an AI feature's release; this is also the
    bridge to other Harness modules later.*
 
-## 4. The AI feature
+## 4. The features
+
+Two feature areas anchor the demo, deliberately owned by **two different squads** so the
+governance story (Phase 3) has more than one team's flags to point at, and so the demo covers
+more than one FME flag category end-to-end (operational + experimental + release).
+
+### 4.1 AI financial assistant (squad-ai)
 
 An **AI financial assistant**: a chat interface inside the banking app that answers questions about
 the user's (mock) finances — e.g. "How much did I spend on dining last month?", "Can I afford a
 $2,000 purchase?", "Summarize my spending." Powered by Anthropic Claude.
 
-This single feature is the canvas we wrap all FME concepts around:
-- **Kill switch** — turn the assistant off instantly if it misbehaves.
+This feature is the canvas for the *architecture* + *experimentation* pillars:
+- **Kill switch** (`ops_assistant_killSwitch_web`) — turn the assistant off instantly if it misbehaves.
 - **Targeting** — give premium-tier users a stronger model (Sonnet) and others a faster/cheaper one (Haiku).
-- **Model experiment** — A/B Haiku vs Sonnet (or two prompt versions) and measure outcomes.
-- **Governed rollout** — release a new assistant capability progressively, behind approvals/policies.
+- **Model experiment** (`exp_assistant_modelChoice_web`) — A/B Haiku vs Sonnet, with Dynamic
+  Configuration (model, temperature, prompt variant, context size) beyond just the model id, and a
+  real hydrated FME experiment (D-016).
+- **Release flag** — `rel_assistant_spendingInsights_web` exists as a governance-policy exemplar
+  (name/tags/description only; no app-side runtime wiring — see D-019).
+
+### 4.2 Mortgage refinance servicing (squad-payments)
+
+A second, non-AI surface: a promotional refinance banner on the dashboard and a two-step
+application flow. Built to give the *governance* pillar a second squad to point at, and to prove
+the release-flag + experiment patterns generalize beyond the AI assistant (D-019).
+
+- **Release flag** (`rel_mortgage_refinanceBanner_web`, default **on**) — a dashboard banner
+  (`MortgageBanner.tsx`) whose copy, promoted rate, and fee-formula parameters are all **Dynamic
+  Configuration**, editable in the FME UI with no redeploy — the same "beyond flip a switch"
+  story as the AI model flag's config (D-013), for a non-AI feature.
+- **Experiment flag** (`exp_mortgage_applicationFlow_web`) — A/B a **single-screen** vs. **guided
+  2-page** application flow (`MortgageApplyClient.tsx`). Riley/Jordan are pinned to opposite
+  variants via deterministic individual-key targeting, mirroring the AI model flag's tier
+  targeting.
+- **Real runtime behavior:** `POST /api/mortgage/apply` re-derives the fee **server-side** (never
+  trusts a client-supplied number) via `lib/mortgage/fees.ts`, fed by the banner's live Dynamic
+  Config, persists the application, and fires two FME events.
+- **A genuine trade-off result:** single-screen wins on raw submission rate, but the 2-page flow's
+  guided pricing step nudges more submitters to the higher-fee option, so 2-page wins on average
+  fee — a business trade-off, not a simple win/lose. Pre-populated via the same Experiment
+  Hydrator pattern as the AI model experiment (D-016 Path B); no in-app results dashboard for this
+  one — FME console only. Full runbook: [EXPERIMENT_HYDRATOR.md](EXPERIMENT_HYDRATOR.md).
 
 ## 5. Requirements
 

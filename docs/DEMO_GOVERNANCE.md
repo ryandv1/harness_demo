@@ -135,10 +135,16 @@ naming-convention policy and the category-tag policy):
   release flags — *without* hamstringing operational ones.
 
 ### Scene 4 — MEASURED ROLLOUT: console drives, the app responds (≈3 min)
-- **DO:** In the console, request a **production targeting change** for `rel_assistant_spendingInsights_web` →
-  triggers the **approval** (routed to the PM team by category) and the **demo-first gate** (blocked
-  unless validated in demo first). Approve it.
-- **DO:** Ramp `1% → 50% → 100%`.
+- **DO:** Run the **reusable rollout pipeline** (`pipelines/governed-fme-rollout.yml`) with
+  `flagName = rel_assistant_spendingInsights_web` and the prod environment. The same flag-agnostic
+  pipeline rolls out *any* flag: **Guardrail → Approval (routed to `team_pm_ai`) → ramp**. Approve at
+  the gate.
+- **DO:** The pipeline ramps `1% → 50% → 100%` via `FmeFlagDefaultAllocation`, with an approval gate
+  between stages and an `FmeFlagKill` rollback on failure.
+- **DO (the guardrail beat):** Try to run the same pipeline against `exp_assistant_modelChoice_web` →
+  the OPA Policy step (`block_experiment_flag_rollout`) **hard-blocks** it: a routine rollout can't
+  touch an experiment flag and orphan its live metric window. "Same pipeline, but governance won't let
+  me break my experiment." (See `pipelines/README.md`, D-017.)
 - **SHOW — switch to the Northwind app:** spending-insights UI appears for targeted users; flip the
   ramp and it spreads. **Then open the app's Governance panel** — category, owner, tags, last-modified,
   and **policy-compliance pulled live from the FME Admin API**. "The product reflects the same
@@ -202,9 +208,15 @@ naming-convention policy and the category-tag policy):
 - **Audible-ready (zero prep):** if the org isn't pre-configured, fall back to the in-app governance
   mirror + the committed Phase 2 results, and *narrate* the console policies from screenshots.
 
-## 6. Open build items this script implies (not yet done)
-- `rel_assistant_spendingInsights_web` flag + its runtime UI in the Northwind app (Release-category exemplar).
+## 6. Open build items this script implies
+**Done:**
+- ✅ FME save-time governance Rego (`policies/*.rego`) + flag naming convention (D-010/D-011/D-014).
+- ✅ Reusable rollout pipeline + experiment guardrail authored in repo (`pipelines/`, D-017) **and
+  created live** in Harness via MCP (policy + Custom policy set `onstep`/`error` + pipeline
+  `governed_fme_rollout`).
+
+**Still open:**
+- `rel_assistant_spendingInsights_web` flag + its runtime UI in the Northwind app (Release-category
+  exemplar). Flag left to create live during Scene 1.
 - The read-only **Governance panel** in the app (FME Admin API → category/owner/tags/compliance).
-- Authoring the actual Rego in the org + tagging the two existing flags as compliant exemplars.
-- A decision-log entry (D-010) recording "governance lives in the console; app is runtime payoff +
-  read-only mirror."
+- A live end-to-end pipeline run (needs the `rel_*` flag + the project's FME connector verified).

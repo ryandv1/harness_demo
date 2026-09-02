@@ -1,8 +1,8 @@
 import type { UserData } from "@/lib/types";
 import { formatUSD } from "@/lib/format";
-import { MODEL_BY_TREATMENT } from "@/lib/flags/flags";
+import type { ModelConfig } from "@/lib/flags/flags";
 
-// Fallback model if no flag treatment is supplied (Phase 1: the exp_assistant_modelChoice_web flag drives this).
+// Fallback model if no flag config is supplied (the exp_assistant_modelChoice_web flag drives this).
 const DEFAULT_MODEL = "claude-sonnet-4-6";
 
 export type AssistantSource = "claude" | "fallback";
@@ -13,12 +13,24 @@ export interface AssistantResult {
   model?: string;
 }
 
+// Two system-prompt variants, selected by the flag's Dynamic Configuration. This is a
+// non-model variable under experiment: same model, different instruction style.
+const SYSTEM_BASE =
+  "You are Northwind Bank's friendly financial assistant. Answer using ONLY the " +
+  "account data provided in the user's message. All amounts are USD. Never invent " +
+  "transactions or balances.";
+const SYSTEM_VARIANTS: Record<ModelConfig["systemVariant"], string> = {
+  concise: `${SYSTEM_BASE} Be brief: 1–2 sentences, lead with the number.`,
+  detailed: `${SYSTEM_BASE} Be specific and cite figures from the data, briefly explain ` +
+    "the reasoning, and if the data cannot answer the question, say so plainly.",
+};
+
 export async function askAssistant(
   data: UserData,
   question: string,
-  modelTreatment?: string
+  config?: ModelConfig
 ): Promise<AssistantResult> {
-  const model = MODEL_BY_TREATMENT[modelTreatment ?? ""] ?? DEFAULT_MODEL;
+  const model = config?.model ?? DEFAULT_MODEL;
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
     return { reply: localAnswer(data, question), source: "fallback", model };
@@ -30,16 +42,13 @@ export async function askAssistant(
     const client = new Anthropic({ apiKey });
     const msg = await client.messages.create({
       model,
-      max_tokens: 600,
-      system:
-        "You are Northwind Bank's friendly financial assistant. Answer using ONLY the " +
-        "account data provided in the user's message. All amounts are USD. Be concise and " +
-        "specific, cite figures from the data, and if the data cannot answer the question, " +
-        "say so plainly. Never invent transactions or balances.",
+      max_tokens: config?.maxTokens ?? 600,
+      temperature: config?.temperature,
+      system: SYSTEM_VARIANTS[config?.systemVariant ?? "detailed"],
       messages: [
         {
           role: "user",
-          content: `${buildContext(data)}\n\nQuestion: ${question}`,
+          content: `${buildContext(data, config?.contextTransactions)}\n\nQuestion: ${question}`,
         },
       ],
     });
@@ -59,11 +68,17 @@ export async function askAssistant(
 
 // --- Context for the LLM ---
 
-function buildContext(data: UserData): string {
+function buildContext(data: UserData, contextTransactions?: number): string {
   const accounts = data.accounts
     .map((a) => `- ${a.name} (${a.type}): ${formatUSD(a.balanceCents)}`)
     .join("\n");
-  const txns = data.transactions
+  // contextTransactions (a Dynamic Configuration variable) caps how many recent
+  // transactions we feed the model — the context-size vs. cost tradeoff, tunable live.
+  const selected =
+    typeof contextTransactions === "number"
+      ? data.transactions.slice(0, contextTransactions)
+      : data.transactions;
+  const txns = selected
     .map((t) => `- ${t.date} | ${t.merchant} | ${t.category} | ${formatUSD(t.amountCents)}`)
     .join("\n");
   return [

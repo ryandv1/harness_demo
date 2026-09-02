@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import type { ExperimentResult } from "@/lib/experiment/types";
+import InfoTip from "./InfoTip";
 
 const SOURCE_LABEL: Record<ExperimentResult["source"], string> = {
   fixtures: "pre-baked",
@@ -63,7 +64,17 @@ export default function ExperimentResults({ refreshKey = 0 }: { refreshKey?: num
         <div className="exp-name">{result.name}</div>
         <div className="exp-sub">
           Primary metric: {result.metric} · {result.totalExposures.toLocaleString()}{" "}
-          exposures (target ≥ {result.requiredSamplePerArm.toLocaleString()}/arm)
+          exposures (target{" "}
+          <InfoTip
+            placement="left"
+            tip="Minimum sample size per treatment arm, from an up-front power analysis. It answers: how many users do I need through each variant before I can trust the result? Computed from baseline rate (62%), the smallest lift worth detecting (+6 pts), significance (α = 0.05 → 95% confidence), and power (80%). Past this line, the test is well-powered — not calling a winner on too little data."
+          >
+            ≥ {result.requiredSamplePerArm.toLocaleString()}/arm
+            <span className="infotip-mark" aria-hidden="true">
+              i
+            </span>
+          </InfoTip>
+          )
         </div>
       </div>
 
@@ -73,8 +84,28 @@ export default function ExperimentResults({ refreshKey = 0 }: { refreshKey?: num
             <th>Treatment</th>
             <th>{result.metric}</th>
             <th>Avg latency</th>
-            <th>Avg cost</th>
-            <th>n</th>
+            <th>
+              <InfoTip
+                placement="right"
+                tip="Average API cost per assistant response for this treatment, in cents. Sonnet costs more per call than Haiku — this is the cost side of the quality/cost trade-off."
+              >
+                Avg cost
+                <span className="infotip-mark" aria-hidden="true">
+                  i
+                </span>
+              </InfoTip>
+            </th>
+            <th>
+              <InfoTip
+                placement="right"
+                tip="n = sample size: the number of assistant responses (exposures) attributed to this treatment. Bigger n → tighter confidence intervals and a more trustworthy result."
+              >
+                n
+                <span className="infotip-mark" aria-hidden="true">
+                  i
+                </span>
+              </InfoTip>
+            </th>
           </tr>
         </thead>
         <tbody>

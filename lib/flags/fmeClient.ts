@@ -1,4 +1,4 @@
-import type { FlagClient, FlagMode } from "./types";
+import type { FlagClient, FlagMode, TreatmentWithConfig } from "./types";
 import { SplitFactory } from "@splitsoftware/splitio";
 
 // Real Harness FME (Split) server-side SDK wrapper. Only instantiated when an
@@ -29,5 +29,29 @@ export class FmeFlagClient implements FlagClient {
     attributes?: Record<string, unknown>
   ): string {
     return this.client.getTreatment(userKey, flag, attributes as any);
+  }
+
+  getTreatmentWithConfig(
+    userKey: string,
+    flag: string,
+    attributes?: Record<string, unknown>
+  ): TreatmentWithConfig {
+    // SDK returns { treatment, config } where config is a JSON string or null.
+    const r = this.client.getTreatmentWithConfig(userKey, flag, attributes as any);
+    return { treatment: r.treatment, config: r.config ?? null };
+  }
+
+  // Fires whenever streaming delivers new targeting rules from the FME backend —
+  // this is what lets a flag change in the Harness UI reach a running app with
+  // no redeploy AND no polling.
+  onUpdate(callback: () => void): () => void {
+    this.client.on(this.client.Event.SDK_UPDATE, callback);
+    return () => this.client.removeListener(this.client.Event.SDK_UPDATE, callback);
+  }
+
+  // Real FME metric capture: client.track(key, trafficType, eventType, value).
+  // Traffic type is fixed to "user" (the only one this app's flags use).
+  track(userKey: string, eventType: string, value?: number): boolean {
+    return this.client.track(userKey, "user", eventType, value);
   }
 }

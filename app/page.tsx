@@ -1,8 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import type { User, UserData } from "@/lib/types";
-import type { FlagEvaluation, FlagMode } from "@/lib/flags/types";
+import type {
+  FlagEnvironmentInfo,
+  FlagEvaluation,
+  FlagMode,
+} from "@/lib/flags/types";
 import { FLAGS } from "@/lib/flags/flags";
 import UserSwitcher from "./components/UserSwitcher";
 import AccountOverview from "./components/AccountOverview";
@@ -10,9 +14,12 @@ import TransactionList from "./components/TransactionList";
 import AssistantPanel from "./components/AssistantPanel";
 import DemoPanel from "./components/DemoPanel";
 import ExperimentResults from "./components/ExperimentResults";
+import FlagFooter from "./components/FlagFooter";
+import MortgageBanner from "./components/MortgageBanner";
 
 interface FlagState {
   mode: FlagMode;
+  environment: FlagEnvironmentInfo;
   evaluations: FlagEvaluation[];
 }
 
@@ -33,20 +40,39 @@ export default function Home() {
       });
   }, []);
 
-  const refreshFlags = useCallback((userId: string) => {
-    return fetch(`/api/flags?userId=${userId}`)
-      .then((r) => r.json())
-      .then(setFlags);
-  }, []);
-
   useEffect(() => {
     if (!currentId) return;
-    setData(null);
+    // Deliberately do NOT setData(null) here. Nulling it out made the whole
+    // layout (and MortgageBanner, both gated on `data`) unmount for one frame
+    // on every switch, then remount once the refetch resolved — a same-frame
+    // collapse/snap-back that (a) hid the banner and (b) triggered the
+    // browser's scroll-anchoring adjustment when the page height suddenly
+    // changed, which is what looked like "the page scrolls down a little."
+    // Keeping the previous user's data mounted until the new one arrives
+    // avoids the height change entirely. `active` guards against a stale
+    // response winning a race if the user switches again before this fetch
+    // resolves (fetch has no built-in cancellation-by-dependency).
+    let active = true;
     fetch(`/api/users/${currentId}`)
       .then((r) => r.json())
-      .then(setData);
-    refreshFlags(currentId);
-  }, [currentId, refreshFlags]);
+      .then((d: UserData) => {
+        if (active) setData(d);
+      });
+    return () => {
+      active = false;
+    };
+  }, [currentId]);
+
+  // Live flag updates: one SSE connection per current user. The server pushes
+  // a fresh evaluation set immediately on connect, then again whenever the
+  // FME SDK's SDK_UPDATE fires (real streaming in live mode, a demo toggle in
+  // mock mode) — no polling, no manual refresh.
+  useEffect(() => {
+    if (!currentId) return;
+    const source = new EventSource(`/api/flags/stream?userId=${currentId}`);
+    source.onmessage = (event) => setFlags(JSON.parse(event.data));
+    return () => source.close();
+  }, [currentId]);
 
   async function handleToggle(flag: string, treatment: string) {
     await fetch("/api/flags/override", {
@@ -54,7 +80,8 @@ export default function Home() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ flag, treatment }),
     });
-    await refreshFlags(currentId);
+    // No manual refetch: setOverride() notifies the mock emitter, which pushes
+    // the new evaluations down the open SSE connection above.
   }
 
   const assistantEnabled =
@@ -77,6 +104,13 @@ export default function Home() {
         Demo app for Harness FME. Switch the user (free vs premium) to see flag targeting,
         and use the FME Demo Panel to flip flags live.
       </div>
+
+      {data && flags && (
+        <MortgageBanner
+          evaluation={flags.evaluations.find((e) => e.flag === FLAGS.MORTGAGE_REFI_BANNER)}
+          userId={data.user.id}
+        />
+      )}
 
       {data ? (
         <div className="layout">
@@ -102,6 +136,13 @@ export default function Home() {
         </div>
       ) : (
         <div className="card">Loading…</div>
+      )}
+
+      {flags && (
+        <FlagFooter
+          evaluations={flags.evaluations}
+          environment={flags.environment}
+        />
       )}
     </div>
   );
