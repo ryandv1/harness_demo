@@ -39,8 +39,16 @@ export default function AssistantPanel({
     setMessages([]);
   }, [userId]);
 
+  // Auto-scroll to the latest message — but only when there IS a message.
+  // `messages` also changes on the user-switch reset above (new empty
+  // array), and with no `block` option scrollIntoView defaults to
+  // "center", which yanks the *whole page* to re-center this panel even
+  // when it's already fully visible. Guarding on length and pinning
+  // `block: "nearest"` keeps this scroll local to the chat log instead of
+  // hijacking window scroll on every switch (see docs/DECISIONS.md).
   useEffect(() => {
-    endRef.current?.scrollIntoView({ behavior: "smooth" });
+    if (messages.length === 0) return;
+    endRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
   }, [messages]);
 
   async function send(text: string) {
