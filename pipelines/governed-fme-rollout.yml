@@ -1,0 +1,281 @@
+pipeline:
+  name: Governed FME Rollout
+  identifier: governed_fme_rollout
+  projectIdentifier: FME_Finance_AI_demo
+  orgIdentifier: default
+  description: >-
+    Reusable, flag-AGNOSTIC progressive rollout for ANY Harness FME feature flag.
+    Supply the flag + environment at runtime; the pipeline runs the same standard
+    gates every time:
+      1. Guardrail  — an OPA Policy step blocks the run if the target flag is an
+                      experiment flag (protects live experiment metric windows).
+      2. Approval   — a Harness approval gate (routed to the PM team).
+      3. Rollout    — staged FmeFlagDefaultAllocation ramp 1% -> 50% -> 100%, with an
+                      approval gate between each stage and a kill-flag rollback on failure.
+    This is NOT coupled to any one flag. The Phase-2 experiment flag
+    (exp_assistant_modelChoice_web) is deliberately rejected by the guardrail so a
+    routine rollout can never disturb its computed-metrics dashboard.
+  tags:
+    category-release: ""
+    squad-ai: ""
+  # --- Runtime inputs: what makes the pipeline reusable across flags ---
+  variables:
+    - name: flagName
+      type: String
+      description: "FME feature flag to roll out (e.g. rel_assistant_spendingInsights_web). exp_* flags are blocked by the guardrail."
+      required: true
+      value: <+input>
+    - name: environment
+      type: String
+      description: "FME environment NAME as the FME step expects it (e.g. Stg-FME_Finance_AI_d or Prod-FME_Finance_AI_)."
+      required: true
+      value: <+input>
+    - name: onTreatment
+      type: String
+      description: "Treatment to ramp UP (the feature 'on')."
+      required: false
+      value: <+input>.default(on)
+    - name: offTreatment
+      type: String
+      description: "Treatment to ramp DOWN (the feature 'off')."
+      required: false
+      value: <+input>.default(off)
+  stages:
+    # ---------------------------------------------------------------------------
+    # Stage 1 — GUARDRAIL: protect experiments (governance-as-code, unskippable)
+    # ---------------------------------------------------------------------------
+    - stage:
+        name: Guardrail
+        identifier: guardrail
+        type: Custom
+        spec:
+          execution:
+            steps:
+              - step:
+                  type: Policy
+                  name: Block Experiment Flags
+                  identifier: block_experiment_flags
+                  timeout: 10m
+                  spec:
+                    # Policy set holding pipelines/policies/block_experiment_flag_rollout.rego.
+                    # LIVE in this project (created via MCP, D-017): entity type "Custom",
+                    # enforcement action "On Step", severity "Error" — blocks the execution.
+                    policySets:
+                      - block_experiment_flag_rollout
+                    type: Custom
+                    policySpec:
+                      payload: |-
+                        {
+                          "flagName": "<+pipeline.variables.flagName>",
+                          "environment": "<+pipeline.variables.environment>"
+                        }
+    # ---------------------------------------------------------------------------
+    # Stage 2 — APPROVAL: human gate, routed by team
+    # ---------------------------------------------------------------------------
+    - stage:
+        name: Approval
+        identifier: approval
+        type: Approval
+        spec:
+          execution:
+            steps:
+              - step:
+                  type: HarnessApproval
+                  name: Release Approval
+                  identifier: release_approval
+                  timeout: 1d
+                  spec:
+                    approvalMessage: >-
+                      Approve progressive rollout of <+pipeline.variables.flagName>
+                      in <+pipeline.variables.environment>.
+                    includePipelineExecutionHistory: true
+                    isAutoRejectEnabled: false
+                    approvers:
+                      userGroups:
+                        - team_pm_ai
+                      minimumCount: 1
+                      disallowPipelineExecutor: false
+                    approverInputs: []
+    # ---------------------------------------------------------------------------
+    # Stage 3 — LIVE UAT: expose to internal QA + beta segments before the ramp
+    # ---------------------------------------------------------------------------
+    # Authored by Ryan in the Pipeline Studio (reconciled here from live). Exposes
+    # the flag to the Internal_QA_Team then Beta_Customers segments, each followed
+    # by an auto-approval gate (the Simple_15s_Auto_Approval_demo step template).
+    # NOTE: the FmeSegment* steps + the approval template + both segments are real
+    # entities in the project — keep their names in sync if you rename them.
+    - stage:
+        name: Live UAT
+        identifier: Live_UAT
+        description: Exposure to Internal QA, Friends & Family
+        type: Custom
+        spec:
+          execution:
+            steps:
+              - step:
+                  type: FmeSegmentAddRemoveTargets
+                  name: Add_InternalQA_to_rollout
+                  identifier: Add_InternalQA_to_rollout
+                  spec:
+                    segmentName: Internal_QA_Team
+                    environment: <+pipeline.variables.environment>
+                    addKeys:
+                      - riley
+                      - jordan
+                    removeKeys: []
+              - step:
+                  name: InternalQA_Approval_Gate
+                  identifier: InternalQA_Approval_Gate
+                  template:
+                    templateRef: Simple_15s_Auto_Approval_demo
+                    versionLabel: v.01
+              - step:
+                  type: FmeSegmentAddRemoveTargets
+                  name: Add_Beta_Customers_to_rollout
+                  identifier: Add_Beta_Customers_to_rollout
+                  spec:
+                    segmentName: Beta_Customers
+                    environment: <+pipeline.variables.environment>
+                    addKeys:
+                      - riley
+                      - jordan
+                    removeKeys: []
+              - step:
+                  name: betaCustomers_Approval_Gate
+                  identifier: betaCustomers_Approval_Gate
+                  template:
+                    templateRef: Simple_15s_Auto_Approval_demo
+                    versionLabel: v.01
+              # >>> DORMANT Jira comment step drops in HERE (last step of Live UAT).
+              #     See the commented block at the bottom of this file. Blocked on
+              #     the Jira connector; not live yet.
+        tags: {}
+    # ---------------------------------------------------------------------------
+    # Stage 4 — PROGRESSIVE ROLLOUT: 1% -> 50% -> 100% with gates + rollback
+    # ---------------------------------------------------------------------------
+    - stage:
+        name: Progressive Rollout
+        identifier: progressive_rollout
+        type: Custom
+        spec:
+          execution:
+            steps:
+              - step:
+                  type: FmeFlagDefaultAllocation
+                  name: Ramp to 1 percent
+                  identifier: ramp_1
+                  timeout: 10m
+                  spec:
+                    flagName: <+pipeline.variables.flagName>
+                    environment: <+pipeline.variables.environment>
+                    allocation:
+                      - treatment: <+pipeline.variables.onTreatment>
+                        amount: 1
+                      - treatment: <+pipeline.variables.offTreatment>
+                        amount: 99
+              - step:
+                  type: HarnessApproval
+                  name: Proceed to 50 percent
+                  identifier: gate_50
+                  timeout: 1d
+                  spec:
+                    approvalMessage: "1 percent canary healthy? Approve ramp to 50 percent."
+                    includePipelineExecutionHistory: true
+                    isAutoRejectEnabled: false
+                    approvers:
+                      userGroups:
+                        - team_pm_ai
+                      minimumCount: 1
+                      disallowPipelineExecutor: false
+                    approverInputs: []
+              - step:
+                  type: FmeFlagDefaultAllocation
+                  name: Ramp to 50 percent
+                  identifier: ramp_50
+                  timeout: 10m
+                  spec:
+                    flagName: <+pipeline.variables.flagName>
+                    environment: <+pipeline.variables.environment>
+                    allocation:
+                      - treatment: <+pipeline.variables.onTreatment>
+                        amount: 50
+                      - treatment: <+pipeline.variables.offTreatment>
+                        amount: 50
+              - step:
+                  type: HarnessApproval
+                  name: Proceed to 100 percent
+                  identifier: gate_100
+                  timeout: 1d
+                  spec:
+                    approvalMessage: "50 percent healthy? Approve full rollout to 100 percent."
+                    includePipelineExecutionHistory: true
+                    isAutoRejectEnabled: false
+                    approvers:
+                      userGroups:
+                        - team_pm_ai
+                      minimumCount: 1
+                      disallowPipelineExecutor: false
+                    approverInputs: []
+              - step:
+                  type: FmeFlagDefaultAllocation
+                  name: Ramp to 100 percent
+                  identifier: ramp_100
+                  timeout: 10m
+                  spec:
+                    flagName: <+pipeline.variables.flagName>
+                    environment: <+pipeline.variables.environment>
+                    allocation:
+                      - treatment: <+pipeline.variables.onTreatment>
+                        amount: 100
+                      - treatment: <+pipeline.variables.offTreatment>
+                        amount: 0
+          # On any failure during the ramp, kill the flag (serve OFF) so a bad rollout
+          # is contained rather than left mid-ramp.
+          rollbackSteps:
+            - step:
+                type: FmeFlagKill
+                name: Kill Flag (rollback)
+                identifier: kill_rollback
+                timeout: 10m
+                spec:
+                  flagName: <+pipeline.variables.flagName>
+                  environment: <+pipeline.variables.environment>
+        failureStrategies:
+          - onFailure:
+              errors:
+                - AllErrors
+              action:
+                type: StageRollback
+# ============================================================================
+# DORMANT — Jira comment after Live UAT (NOT live; blocked on the Jira connector)
+# ----------------------------------------------------------------------------
+# Decision (2026-06-16): after the Live UAT stage passes, comment on a FIXED Jira
+# ticket that the governed rollout completed. The Jira integration is currently
+# down, so this is staged here only — it is NOT in the live pipeline yet.
+#
+# TO ACTIVATE once the Jira connector works:
+#   1. Replace the two <REPLACE_…> placeholders below (connectorRef + issueKey).
+#   2. Paste the `- step:` block at the ">>> DORMANT Jira comment step drops in HERE"
+#      marker in the Live UAT stage (identifier: Live_UAT) — i.e. as the LAST step in
+#      its execution.steps, so it runs only after the QA + beta gates pass. Then save /
+#      re-create via MCP.
+#   3. Optional: add a `transitionTo:` block to also move the ticket to Done/Released.
+#
+# Step shape verified against the Harness JiraUpdate step (comment via the
+# special "Comment" field; no transition = comment-only).
+#
+#               - step:
+#                   type: JiraUpdate
+#                   name: Comment on Jira Ticket
+#                   identifier: comment_jira
+#                   timeout: 5m
+#                   spec:
+#                     connectorRef: <REPLACE_WITH_JIRA_CONNECTOR>   # e.g. account.MyJira
+#                     issueKey: <REPLACE_WITH_ISSUE_KEY>            # fixed ticket, e.g. FME-123
+#                     fields:
+#                       - name: Comment
+#                         value: >-
+#                           Governed rollout of <+pipeline.variables.flagName> to
+#                           <+pipeline.variables.environment> completed and passed Live UAT.
+#                           (Execution <+pipeline.executionId>.)
+# ============================================================================
